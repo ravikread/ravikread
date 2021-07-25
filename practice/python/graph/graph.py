@@ -3,35 +3,64 @@ import re
 import logging
 import sys
 
-#logging_level = logging.INFO
-logging_level = logging.DEBUG
+logging_level = logging.INFO
+#logging_level = logging.DEBUG
 
 class linkCmp:
     def __init__(self, obj, *args):
         self.obj = obj
 
     def __lt__(self, other):
-        return linkSortCmp(self.obj, other.obj) < 0
+        return linkSortCmp1(self.obj, other.obj) < 0
 
     def __gt__(self, other):
-        return linkSortCmp(self.obj, other.obj) > 0
+        return linkSortCmp1(self.obj, other.obj) > 0
 
     def __eq__(self, other):
-        return linkSortCmp(self.obj, other.obj) == 0
+        return linkSortCmp1(self.obj, other.obj) == 0
 
     def __le__(self, other):
-        return linkSortCmp(self.obj, other.obj) <= 0
+        return linkSortCmp1(self.obj, other.obj) <= 0
 
     def __ge__(self, other):
-        return linkSortCmp(self.obj, other.obj) >= 0
+        return linkSortCmp1(self.obj, other.obj) >= 0
 
     def __ne__(self, other):
-        return linkSortCmp(self.obj, other.obj) != 0
+        return linkSortCmp1(self.obj, other.obj) != 0
 
 def linkSortCmp(new, old):
     newNum = int(new[1:])
     oldNum = int(old[1:])
     return newNum - oldNum
+
+def strToLinkList(string):
+    token = []
+    if isinstance(string, str):
+        token = re.findall('[0-9]+', string)
+    elif isinstance(string, tuple):
+        token = re.findall('[0-9]+', string[0])
+        token = token + re.findall('[0-9]+', string[1])
+    else:
+        token = string
+    return token
+
+
+def linkSortCmp1(new, old):
+    n_link = strToLinkList(new)
+    o_link = strToLinkList(old)
+
+    if len(n_link) > len(o_link):
+        return 1
+    if len(o_link) > len(n_link):
+        return -1
+
+    min_len = min(len(n_link), len(o_link))
+    for i in range(min_len):
+        ret = int(n_link[i]) - int(o_link[i])
+        if ret != 0:
+           return ret 
+
+    return 0
 
 
 class Graph:
@@ -83,6 +112,7 @@ class Graph:
                 self.parseNode(line.strip("\n"))
 
         self.linkList.sort(key=linkCmp)
+        print("........ linkList", self.linkList)
 
 
     def addLink(self, srcNode, dstNode, link):
@@ -173,7 +203,7 @@ class Graph:
     def printLinkTableHdr(self):
         if self.linkTableHdrWrite is False:
             keys = self.linkInPath.keys()
-            keys.sort(key=len)
+            keys.sort(key=linkCmp)
             for i in range(len(self.linkList)):
                 line = ""
                 doWrite = False
@@ -197,7 +227,7 @@ class Graph:
 
     def printLinkTableData(self):
         keys = self.linkInPath.keys()
-        keys.sort(key=len)
+        keys.sort(key=linkCmp)
         for i in range(len(self.path)):
             line = ""
             for key in keys:
@@ -357,6 +387,7 @@ class Graph:
         for i in range(0, totalNode):
             for j in range(i + 1, totalNode):
                 nodePairs.append((nodeList[i], nodeList[j]))
+        nodePairs.sort(key=linkCmp)
         return nodePairs
 
     def findAllPathBtAllNodes(self):
@@ -366,7 +397,6 @@ class Graph:
         for pair in nodePair:
             logging.debug("find path for %s", pair)
             self.findAllPath(pair[0], pair[1])
-        
 
 def testGraph():
     g = Graph()
