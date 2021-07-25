@@ -190,11 +190,11 @@ class Graph:
 
         for i in range(len(self.path)):
             path = self.path[i]
-            set1 = set(path)
             for key in self.linkInPath.keys():
-                set2 = set(self.linkInPath[key][0])
-                if set2.issubset(set1) is True:
-                    self.linkInPath[key][i + 1] = 0
+                for link in self.linkInPath[key][0]:
+                    if link in path:
+                        self.linkInPath[key][i+1] = 0
+                        break
 
     def writeToFile(self, fileHandle, rStr):
         if fileHandle is not None:
@@ -397,6 +397,7 @@ class Graph:
         for pair in nodePair:
             logging.debug("find path for %s", pair)
             self.findAllPath(pair[0], pair[1])
+            break
 
 def testGraph():
     g = Graph()
