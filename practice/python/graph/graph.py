@@ -3,10 +3,39 @@ import re
 import logging
 import sys
 
-logging_level = logging.INFO
+#logging_level = logging.INFO
+logging_level = logging.DEBUG
+
+class linkCmp:
+    def __init__(self, obj, *args):
+        self.obj = obj
+
+    def __lt__(self, other):
+        return linkSortCmp(self.obj, other.obj) < 0
+
+    def __gt__(self, other):
+        return linkSortCmp(self.obj, other.obj) > 0
+
+    def __eq__(self, other):
+        return linkSortCmp(self.obj, other.obj) == 0
+
+    def __le__(self, other):
+        return linkSortCmp(self.obj, other.obj) <= 0
+
+    def __ge__(self, other):
+        return linkSortCmp(self.obj, other.obj) >= 0
+
+    def __ne__(self, other):
+        return linkSortCmp(self.obj, other.obj) != 0
+
+def linkSortCmp(new, old):
+    newNum = int(new[1:])
+    oldNum = int(old[1:])
+    return newNum - oldNum
+
 
 class Graph:
-    def __init__(self, outFileName = None, linkOutFileName = None, link3OutFileName = None):
+    def __init__(self, outFileName = None, currPathName = None, linkOutFileName = None, link3OutFileName = None):
         self.adj = {}
         self.path = []
         self.outFileName = outFileName
@@ -14,20 +43,25 @@ class Graph:
         self.srcNode = None
         self.dstNode = None
         self.diversedPath = None
-        self.linkInPath = None
+        self.linkInPath = {}
         self.linkOutFile = None
+        self.currPathFile = None
         self.link3OutFile = None
         self.linkList = []
+        self.linkTableHdrWrite = False
         logging.basicConfig(stream=sys.stderr, level=logging_level)
 
         if outFileName is not None:
             self.outFile = open(outFileName, 'w')
 
+        if currPathName is not None:
+            self.currPathFile = open(currPathName, 'w')
+
         if linkOutFileName is not None:
-            self.linkOutFile = open(linkOutFile, 'w')
+            self.linkOutFile = open(linkOutFileName, 'w')
 
         if link3OutFileName is not None:
-            self.link3OutFile = open(link3OutFile, 'w')
+            self.link3OutFile = open(link3OutFileName, 'w')
 
 
     def __del__(self):
@@ -48,7 +82,7 @@ class Graph:
             for line in inFile:
                 self.parseNode(line.strip("\n"))
 
-        self.linkList.sort()
+        self.linkList.sort(key=linkCmp)
 
 
     def addLink(self, srcNode, dstNode, link):
@@ -96,36 +130,114 @@ class Graph:
         self.findPath(srcNode, dstNode, visitedNode)
         self.printAllPath()
 
+    def buildLinkAndPathTable(self):
+        self.linkInPath = {}
+
+        t_link = len(self.linkList)
+
+        #with Single link 
+        for i in range(t_link):
+            link = self.linkList[i:i+1]
+            key = str(link)
+            self.linkInPath[key] = []
+            self.linkInPath[key].append(link)
+
+        #with two link
+        for i in range(t_link - 1):
+            for j in range(i + 1, t_link):
+                link = self.linkList[i:i+1] + self.linkList[j:j+1]
+                #link = copy.deepcopy(link)
+                link.sort(key=linkCmp)
+                key = str(link)
+                self.linkInPath[key] = []
+                self.linkInPath[key].append(link)
+
+        #set link path status to 0 by default
+        for key in self.linkInPath.keys():
+            self.linkInPath[key] = self.linkInPath[key] + [1] * len(self.path)
+
+        logging.debug("Path Table %s, %s", len(self.linkInPath.keys()), self.linkInPath.keys())
+
+        for i in range(len(self.path)):
+            path = self.path[i]
+            set1 = set(path)
+            for key in self.linkInPath.keys():
+                set2 = set(self.linkInPath[key][0])
+                if set2.issubset(set1) is True:
+                    self.linkInPath[key][i + 1] = 0
+
+    def writeToFile(self, fileHandle, rStr):
+        if fileHandle is not None:
+            fileHandle.write(rStr)
+
+    def printLinkTableHdr(self):
+        if self.linkTableHdrWrite is False:
+            keys = self.linkInPath.keys()
+            keys.sort(key=len)
+            for i in range(len(self.linkList)):
+                line = ""
+                doWrite = False
+                j = 0
+                for key in keys:
+                    if i < len(self.linkInPath[key][0]):
+                        line = line + self.linkInPath[key][0][i] + ","
+                        doWrite = True
+                    else:
+                        line = line + ","
+                    j = j + 1
+
+                line = line + "\n"
+                self.writeToFile(self.linkOutFile, line)
+                self.writeToFile(self.link3OutFile, line)
+
+                if doWrite == False:
+                    break
+
+        self.linkTableHdrWrite = True
+
+    def printLinkTableData(self):
+        keys = self.linkInPath.keys()
+        keys.sort(key=len)
+        for i in range(len(self.path)):
+            line = ""
+            for key in keys:
+                line = line + str(self.linkInPath[key][1 + i]) + ","
+
+            line = line + "\n"
+            self.writeToFile(self.linkOutFile, line)
+            if i <= 2:
+                self.writeToFile(self.link3OutFile, line)
+
+
+
+
+    def printLinkTable(self):
+        if self.linkOutFile is None or self.link3OutFile is None:
+            return
+
+        self.printLinkTableHdr()
+        self.printLinkTableData()
+        
+
+
     def printAllPath(self):
         uniqList = []
+
+        #uniqfy path
         self.unifyPath()
 
+        # build link and path table
+        self.buildLinkAndPathTable()
+        self.printLinkTable()
+        
         i = 0
         for s_path in self.path:
-            self.printOnePath(self.srcNode, self.dstNode, i, s_path)
+            self.printOnePath(self.srcNode, self.dstNode, i, s_path, self.outFile)
             i = i + 1
 
         logging.debug("total path: %s unique path: %s ", len(self.path), len(uniqList))
 
-        '''uniqList = []
-
-        self.path.sort(key = len)
-        i = 0
-        for s_path in self.path:
-            s_path.reverse()
-            tmpList = copy.deepcopy(s_path)
-            tmpList.sort()
-            if tmpList in uniqList:
-                print("duplicate ", s_path)
-                continue
-
-            uniqList.append(tmpList)
-            self.printOnePath(self.srcNode, self.dstNode, i, s_path)
-            i = i + 1
-
-        print("total path: ", len(self.path), "unique path: ", len(uniqList))'''
-
-    def printOnePath(self, srcNode, dstNode, seqNo, path):
+    def printOnePath(self, srcNode, dstNode, seqNo, path, fileHandle):
         line = ""
         if seqNo == 0:
             line = srcNode + "," + dstNode + "," + "W"
@@ -140,8 +252,8 @@ class Graph:
         for link in path:
             line = line + "," + link
 
-        if self.outFile is not None:
-            self.outFile.write(line + "\n")
+        if fileHandle is not None:
+            fileHandle.write(line + "\n")
         else:
             print(line)
 
@@ -214,7 +326,7 @@ class Graph:
 
         i = 0
         for s_path in self.path:
-            self.printOnePath(self.srcNode, self.dstNode, i, s_path)
+            self.printOnePath(self.srcNode, self.dstNode, i, s_path, self.outFile)
             i = i + 1
 
         logging.debug("total path: %s unique path: %s ", len(self.path), len(uniqList))
@@ -270,7 +382,7 @@ def testGraph():
     g.findAllPath("N1", "N2")
 
 def testGraph1():
-    g = Graph(outFileName = "outfile.csv")
+    g = Graph(outFileName = "outfile.csv", currPathName = "currPath.csv", linkOutFileName = "linkTable.csv", link3OutFileName = "3linkTable.csv")
     #g = Graph(outFileName = None)
     g.buildGraphFromFile("network")
     #g.findAllPath("N1", "N2")
