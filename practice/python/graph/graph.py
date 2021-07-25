@@ -1,5 +1,9 @@
 import copy
 import re
+import logging
+import sys
+
+logging_level = logging.DEBUG
 
 class Graph:
     def __init__(self, outFileName = None, linkOutFileName = None, link3OutFileName = None):
@@ -14,6 +18,7 @@ class Graph:
         self.linkOutFile = None
         self.link3OutFile = None
         self.linkList = []
+        logging.basicConfig(stream=sys.stderr, level=logging_level)
 
         if outFileName is not None:
             self.outFile = open(outFileName, 'w')
@@ -81,7 +86,7 @@ class Graph:
         return retList
 
     def findAllPath(self, srcNode, dstNode):
-        print(self.adj)
+        logging.debug("nodes: %s", self.adj)
         visitedNode = []
         self.path = []
         self.srcNode = srcNode
@@ -98,7 +103,7 @@ class Graph:
             self.printOnePath(self.srcNode, self.dstNode, i, s_path)
             i = i + 1
 
-        print("total path: ", len(self.path), "unique path: ", len(uniqList))
+        logging.debug("total path: %s unique path: %s ", len(self.path), len(uniqList))
 
         '''uniqList = []
 
@@ -152,7 +157,7 @@ class Graph:
             tmpList = copy.deepcopy(s_path)
             tmpList.sort()
             if tmpList in uniqList:
-                print("duplicate ", s_path)
+                logging.debug("duplicate %s", s_path)
                 continue
 
             uniqList.append(tmpList)
@@ -210,7 +215,7 @@ class Graph:
             self.printOnePath(self.srcNode, self.dstNode, i, s_path)
             i = i + 1
 
-        print("total path: ", len(self.path), "unique path: ", len(uniqList))
+        logging.debug("total path: %s unique path: %s ", len(self.path), len(uniqList))
 
     def getNodeList(self, nodeName):
         nodeList = []
@@ -244,7 +249,7 @@ class Graph:
         nodePair = self.getNodeList()
         print(nodePair)
         for pair in nodePair:
-            print("find path for ", pair)
+            logging.debug("find path for %s", pair)
             self.findAllPath(pair[0], pair[1])
         
 
