@@ -3,7 +3,7 @@ import re
 import logging
 import sys
 
-logging_level = logging.DEBUG
+logging_level = logging.INFO
 
 class Graph:
     def __init__(self, outFileName = None, linkOutFileName = None, link3OutFileName = None):
@@ -48,9 +48,11 @@ class Graph:
             for line in inFile:
                 self.parseNode(line.strip("\n"))
 
+        self.linkList.sort()
+
 
     def addLink(self, srcNode, dstNode, link):
-        if link is not self.linkList:
+        if link not in self.linkList:
             self.linkList.append(link)
 
         if srcNode in self.adj:
@@ -247,7 +249,8 @@ class Graph:
 
     def findAllPathBtAllNodes(self):
         nodePair = self.getNodeList()
-        print(nodePair)
+        logging.info("search path: %s", nodePair)
+        logging.info("linkLsit: %s", self.linkList)
         for pair in nodePair:
             logging.debug("find path for %s", pair)
             self.findAllPath(pair[0], pair[1])
