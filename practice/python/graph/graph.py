@@ -68,6 +68,10 @@ class Graph:
         self.adj = {}
         self.path = []
         self.outFileName = outFileName
+        self.outFileNameV2 = "pathList_v2.csv"
+        self.linkOutFileName = linkOutFileName
+        self.summarizedFileName = "merge_path_xcno.csv"
+        self.summarizedFileNameV2 = "merge_path_xcno_v2.csv"
         self.outFile = None
         self.srcNode = None
         self.dstNode = None
@@ -216,6 +220,8 @@ class Graph:
                         line = line + ","
                     j = j + 1
 
+                if doWrite == False:
+                    line = ""
                 line = line + "\n"
                 self.writeToFile(self.linkOutFile, line)
                 self.writeToFile(self.link3OutFile, line)
@@ -242,7 +248,7 @@ class Graph:
 
 
     def printLinkTable(self):
-        if self.linkOutFile is None or self.link3OutFile is None:
+        if self.linkOutFile is None and self.link3OutFile is None:
             return
 
         self.printLinkTableHdr()
@@ -386,9 +392,81 @@ class Graph:
         totalNode = len(nodeList)
         for i in range(0, totalNode):
             for j in range(i + 1, totalNode):
-                nodePairs.append((nodeList[i], nodeList[j]))
+                i_num = re.findall('[0-9]+', nodeList[i])
+                j_num = re.findall('[0-9]+', nodeList[j])
+                if int(i_num[0]) > int(j_num[0]):
+                    nodePairs.append((nodeList[j], nodeList[i]))
+                else:
+                    nodePairs.append((nodeList[i], nodeList[j]))
+
         nodePairs.sort(key=linkCmp)
         return nodePairs
+
+    def removeLinkPrefix(self, srcFile, dstFile):
+        outFileSrc = file(srcFile, "r")
+        outFileDst = file(dstFile, "w")
+
+        lines = outFileSrc.readlines()
+
+        for line in lines:
+            outFileDst.write(line.replace("L", ""))
+
+        outFileSrc.close()
+        outFileDst.close()
+ 
+    def mergeFile(self, srcFileWHdr, srcFile, dstFile):
+        srcFileWHdr = file(srcFileWHdr, "r")
+        srcFile = file(srcFile, "r")
+        dstFile = file(dstFile, "w")
+        sep = ","
+
+        # both file should have same number of lines except hdr part
+        linesW = srcFileWHdr.readlines()
+        lines = srcFile.readlines()
+
+        max_column = 0
+        for line in lines:
+            if max_column < line.count(','):
+                max_column = line.count(',')
+        i = 0
+        max_column = max_column + 1 
+        for i in range(len(linesW)):
+            sLine = linesW[i]
+            dstLine = "," * max_column + sep + sLine
+            #end of header
+            if sLine == "\n":
+                dstFile.write("\n")
+                print("..... got hdr break")
+                break
+            dstFile.write(dstLine)
+        i = i + 1
+
+
+        if len(lines) != len(linesW) - i:
+            print("....... : ", len(lines), len(linesW), i)
+            #raise("Files are not same length")
+        #merge files line by line
+        for j in range(len(lines)):
+            dstLine = lines[j][:-1] + "," * (max_column - lines[j].count(','))  + sep + linesW[i]
+            dstFile.write(dstLine)
+            i = i + 1
+            
+        srcFile.close()
+        dstFile.close()
+        srcFileWHdr.close()
+ 
+    def finalizeOutPut(self):
+        #close file and create V2 file
+        if self.outFile is not None:
+            self.outFile.close()
+
+        if self.linkOutFile is not None:
+            self.linkOutFile.close()
+
+        self.removeLinkPrefix(self.outFileName, self.outFileNameV2)
+        self.mergeFile(self.linkOutFileName, self.outFileName, self.summarizedFileName)
+        self.mergeFile(self.linkOutFileName, self.outFileNameV2, self.summarizedFileNameV2)
+       
 
     def findAllPathBtAllNodes(self):
         nodePair = self.getNodeList()
@@ -397,7 +475,7 @@ class Graph:
         for pair in nodePair:
             logging.debug("find path for %s", pair)
             self.findAllPath(pair[0], pair[1])
-            break
+        self.finalizeOutPut()
 
 def testGraph():
     g = Graph()
@@ -413,7 +491,7 @@ def testGraph():
     g.findAllPath("N1", "N2")
 
 def testGraph1():
-    g = Graph(outFileName = "outfile.csv", currPathName = "currPath.csv", linkOutFileName = "linkTable.csv", link3OutFileName = "3linkTable.csv")
+    g = Graph(outFileName = "pathList_v1.csv", currPathName = "currPath.csv", linkOutFileName = "xcno.csv")
     #g = Graph(outFileName = None)
     g.buildGraphFromFile("network")
     #g.findAllPath("N1", "N2")
